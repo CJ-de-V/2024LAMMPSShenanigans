@@ -1,0 +1,110 @@
+# should perform some stuff to set it up for setup, e.g. bonds communicator reading in files
+
+###
+#Box and units
+###
+units lj          #use dimensionless LJ units
+atom_style angle  #atoms with bonds and Angles
+boundary m m m # formerly m m m
+
+###
+# Pair interactions require lists of neighbours to be calculated
+###
+neighbor 1.9 bin #NSQ is a slower more reliable alternative
+neigh_modify every 1 delay 0 check yes
+
+###
+# READ configuration data file
+###
+read_data config.tether
+
+###
+# Set up fixes and velocities
+###
+variable seed equal 333697     # a seed for the thermostat
+
+variable finalID equal count(all) # find the ID of the tether latch
+group fixonepoint id < ${finalID} # latch tether to wall
+velocity all zero linear   #0 velocity initially
+fix 1 fixonepoint nve                             # NVE integrator
+fix 2 all langevin   1.0 1.0 1.0 ${seed}  # langevin thermostat
+
+variable zlength equal "lz/2.0"
+#variable planez equal "zhi-0.99"
+#region myplane plane 0.0 0.0 ${planez} 0.0 0.0 -1.0
+#fix bendywall all wall/region myplane lj93 16.0 1.0 0.858 #OK I MIGHT HAVE MADE A MAJOR MISTAKE WITH THE 9/3 cutoff
+
+##### Output thermodynamic info  (temperature, energy, pressure, etc.) #####
+thermo 10000
+thermo_style   custom   step  temp  epair  emol pe ke etotal  press  vol
+############################################################################
+
+##### Output thermodynamic info to file  ###################################
+variable t equal step
+variable mytemp equal temp
+variable myepair equal epair
+############################################################################
+
+# Definining groups for the tether and the polymer
+group polymer type  1 1
+group tether  type  2 2
+
+############################################################################
+#### Set up a compute for R_g
+compute myRG2compute polymer gyration
+#### and write it to a file
+variable RG2 equal c_myRG2compute
+############################################################################
+
+############################################################################
+#### Set up a compute for center of mass, com, of the polymer
+compute mycomcompute polymer com
+#### and write it to a file... in the python file of course
+############################################################################
+
+###
+# Incremenet COMM cutoff since they get quite pesky about it and it leads to
+# issues like atoms not communicating properly when stretched
+###
+comm_style tiled
+comm_modify cutoff 3.55
+
+###
+# set timestep of integrator
+###
+timestep 0.01
+
+###
+# Now run with LJ potential and FENE bonds
+###
+###
+# angles
+###
+angle_style  cosine
+angle_coeff   1  64.0 # the stiffer polymer
+angle_coeff   2  64.0 # the less stiff chain
+
+
+## Between bonded atoms
+bond_style   fene
+special_bonds fene #<=== I M P O R T A N T prevents LJ from being counted twice
+# For style FENE, specify:
+#   * bond type
+#   * K (energy/distance^2)
+#   * R0 (distance)
+#   * epsilon
+#   * sigma
+bond_coeff   1    30.0   1.5   1.0   1.0
+
+## Between non-bonded atoms
+pair_style      lj/cut 1.12246152962189
+pair_modify shift yes        # option to ensure energy is calculated corectly
+#  pair_coeff for LJ, specify 4:
+#    * atom type interacting with
+#    * atom type
+#    * energy - again set to 0 to allow overlaps
+#    * mean diameter of the two atom types
+#    * cutoff
+pair_coeff      1 1 1.0 1.0 1.12246152962189 #polypoly
+pair_coeff      1 2 1.0 1.0 1.12246152962189 #polytether
+pair_coeff      2 2 1.0 1.0 1.12246152962189 #tethertether
