@@ -25,9 +25,11 @@ struct monomer {
 int i=0,j=0,k=0, l=0, dj=1,  dk=1;
 
 /*arguments:
- * Filename
+
  * number of monomers on polymer
  * number of monomers on tether
+ * Angle
+ * Filename
  */
 int main(int argc, char *argv[]) {
         int N = atoi(argv[1]);  //total number of monomers for chain
@@ -35,7 +37,6 @@ int main(int argc, char *argv[]) {
         double angle = (90-atoi(argv[3]))*Pi/180.0; //angle of original branches in degrees
         int NT=N+T;
         double width = fmax(1.0*N, 1.0*(T+1)); //xy dimensions
-        double zlo = -width/2-N*cos(angle);
         //can't mess around with width on any uncessary spots since it will cause problems  
         //e.g. remember the average extension likes to know how far stretched you are from the top?
         double lb=0.95; //bondlength
@@ -81,7 +82,10 @@ int main(int argc, char *argv[]) {
           listomonomers[id].y=0.0;
           listomonomers[id].z=zpoly+lb*i;
         }
-	
+	double es=1; //Just to ensure everything fits inside
+	double zlo = zpoly+-lb_z*abs(1-MM)-es;
+        double xlo = lb_x*1-width/2.0 + midshift-es;
+        double xhi = lb_x*N-width/2.0 + midshift+es;
 	
 	
         //write to tha file
@@ -92,9 +96,9 @@ int main(int argc, char *argv[]) {
         fprintf(configuration, "%8d bonds\n",NT-1 );
         fprintf(configuration, "%8d angles\n\n",NT-1 );
         fprintf(configuration, "%8d atom types\n",2 );
-        fprintf(configuration, "%8d bond types\n",1 );
+        fprintf(configuration, "%8d bond types\n", 1 );
         fprintf(configuration, "%8d angle types\n\n",2 );
-        fprintf(configuration, "%8lf %8lf xlo xhi\n",-width/2,width/2 );
+        fprintf(configuration, "%8lf %8lf xlo xhi\n",xlo,xhi );
         fprintf(configuration, "%8lf %8lf ylo yhi\n",-width/2,width/2 ); //the 
         fprintf(configuration, "%8lf %8lf zlo zhi\n\n",zlo,width/2);
         fprintf(configuration, "Masses\n\n 1 1\n  2 1\n\n");
